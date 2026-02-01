@@ -1,162 +1,265 @@
 # EmpiricalBayesianWorkflow
 
-General pipeline for empirical Bayesian inference using hierarchical models, with a focus on zero-inflated beta mixed models and conformal prediction.
+R package for empirical Bayesian inference using hierarchical mixed models with conformal prediction. Supports multiple model families with exact parameter mapping between frequentist (glmmTMB) and Bayesian (brms/cmdstanr) frameworks.
 
 ## Overview
 
-This repository implements a complete workflow for fitting zero-inflated beta mixed models with random effects using both frequentist and Bayesian approaches, culminating in uncertainty-aware conformal prediction intervals.
+This package implements a complete workflow for fitting mixed models with random effects using both frequentist and Bayesian approaches, culminating in uncertainty-aware conformal prediction intervals.
 
 ### Key Features
 
-1. **Frequentist Model Fitting**: Uses `glmmTMB` to fit zero-inflated beta mixed models with random intercepts and slopes
-2. **Prior Elicitation**: Automatically extracts and inflates parameter estimates to construct informative priors
-3. **Parameter Renaming**: Carefully maps parameters to match `brms` conventions
-4. **Bayesian Refitting**: Refits the model in `brms` using Stan with informative priors
-5. **Conformal Prediction**: Implements both split conformal and Jackknife+ methods for calibrated prediction intervals
-6. **Uncertainty Quantification**: Assesses whether new observations fall within prediction intervals
+1. **Flexible Family Support**: Beta, zero-inflated beta, gamma, Poisson, negative binomial, and their zero-inflated variants
+2. **Agnostic Frequentist Fitting**: Supports multiple backends (glmmTMB preferred)
+3. **Exact Parameter Mapping**: Automatically maps parameters from glmmTMB → brms with family-specific handling
+4. **Prior Elicitation**: Extracts and inflates parameter estimates to construct informative priors
+5. **Bayesian Fitting**: Uses cmdstanr backend for efficient Stan sampling
+6. **Conformal Prediction**: Implements both split conformal and Jackknife+ methods
+7. **Comprehensive Testing**: GitHub Actions CI/CD with R-CMD-check across platforms
 
 ## Installation
 
 ### Prerequisites
 
-The workflow requires R (>= 4.0.0) and the following packages:
+The package requires R (>= 4.0.0) and the following packages:
 
 ```r
-install.packages(c("glmmTMB", "brms", "dplyr", "ggplot2", "tidyr"))
+# Required for frequentist fitting
+install.packages("glmmTMB")
+
+# Required for Bayesian fitting
+install.packages("brms")
+
+# Required for cmdstanr backend (recommended)
+install.packages("cmdstanr", repos = c("https://mc-stan.org/r-packages/", getOption("repos")))
+cmdstanr::install_cmdstan()
 ```
 
-Note: `brms` requires a working Stan installation. See [brms installation guide](https://paul-buerkner.github.io/brms/) for details.
-
-## Usage
-
-### Basic Example
+### Install from GitHub
 
 ```r
-# Source the workflow functions
-source("zero_inflated_beta_workflow.R")
+# Using devtools
+devtools::install_github("GWMcElfresh/EmpiricalBayesianWorkflow")
 
-# Run the complete workflow with split conformal prediction
-results <- run_zibeta_workflow(use_jackknife = FALSE)
-
-# Access components
-frequentist_model <- results$model_freq
-bayesian_model <- results$model_brms
-conformal_results <- results$conformal_results
-
-# View coverage statistics
-print(conformal_results$coverage)
+# Using remotes
+remotes::install_github("GWMcElfresh/EmpiricalBayesianWorkflow")
 ```
 
-### Running the Example Script
+## Quick Start
 
-```bash
-Rscript example.R
-```
-
-### Advanced Usage
-
-For Jackknife+ conformal prediction (more computationally intensive but potentially more powerful):
+### Basic Usage with Zero-Inflated Beta
 
 ```r
-results <- run_zibeta_workflow(use_jackknife = TRUE)
+library(EmpiricalBayesianWorkflow)
+
+# Run complete workflow with synthetic data
+results <- run_workflow(
+  family = "zero_inflated_beta",
+  n_subjects = 30,
+  n_obs_per_subject = 20,
+  verbose = TRUE
+)
+
+# View results
+print(results)
+print(results$conformal_results)
 ```
 
-## Workflow Details
-
-### 1. Data Generation
-
-The workflow includes synthetic data generation for demonstration:
-- Zero-inflated beta distributed responses
-- Random effects for subjects (intercepts and slopes)
-- Continuous predictor variable
-
-### 2. Frequentist Model (glmmTMB)
+### Using Different Families
 
 ```r
-model <- glmmTMB(
+# Gamma model
+results_gamma <- run_workflow(
+  family = "gamma",
+  n_subjects = 25,
+  verbose = TRUE
+)
+
+# Zero-inflated Poisson
+results_zip <- run_workflow(
+  family = "zero_inflated_poisson",
+  verbose = TRUE
+)
+
+# Regular beta (no zero-inflation)
+results_beta <- run_workflow(
+  family = "beta",
+  verbose = TRUE
+)
+```
+
+### Using Your Own Data
+
+```r
+# Your data should have:
+# - Response variable
+# - Predictor(s)
+# - Grouping variable for random effects
+
+results <- run_workflow(
+  data = my_data,
+  formula = response ~ predictor1 + predictor2 + (1 + predictor1 | group_id),
+  family = "zero_inflated_beta"
+)
+```
+
+### Step-by-Step Workflow
+
+```r
+# 1. Generate or load data
+data <- generate_zibeta_data(n_subjects = 20, n_obs_per_subject = 15)
+
+# 2. Fit frequentist model
+model_freq <- fit_frequentist_model(
   y ~ x + (1 + x | subject_id),
-  data = train_data,
-  family = beta_family(),
-  ziformula = ~ 1
+  data = data,
+  family = "zero_inflated_beta"
+)
+
+# 3. Extract and create priors
+priors <- extract_and_inflate_priors(model_freq)
+brms_priors <- create_brms_priors(priors)
+
+# 4. Fit Bayesian model with cmdstanr
+model_bayes <- fit_bayesian_model(
+  y ~ x + (1 + x | subject_id),
+  data = data,
+  family = "zero_inflated_beta",
+  prior = brms_priors,
+  backend = "cmdstanr"
+)
+
+# 5. Perform conformal prediction
+cp_results <- conformal_prediction_split(
+  model = model_bayes,
+  calibration_data = calib_data,
+  test_data = test_data,
+  alpha = 0.1  # 90% coverage
 )
 ```
 
-### 3. Prior Construction
+## Supported Families
 
-Parameters are extracted and inflated:
-- Fixed effects: Normal priors with mean = estimate, SD = inflated
-- Random effects: Half-normal priors for standard deviations
-- Precision parameter: Gamma prior
-- All parameters renamed to match brms conventions
+| Family | Description | glmmTMB | brms | Parameters |
+|--------|-------------|---------|------|------------|
+| `beta` | Beta distribution for (0,1) | ✓ | ✓ | phi |
+| `zero_inflated_beta` | ZI Beta for [0,1) | ✓ | ✓ | phi, zi |
+| `gamma` | Gamma for positive continuous | ✓ | ✓ | shape |
+| `binomial` | Binary/proportion data | ✓ | ✓ | - |
+| `poisson` | Count data | ✓ | ✓ | - |
+| `zero_inflated_poisson` | ZI Poisson | ✓ | ✓ | zi |
+| `nbinom2` | Negative binomial (NB2) | ✓ | ✓ | shape |
+| `zero_inflated_nbinom2` | ZI negative binomial | ✓ | ✓ | shape, zi |
 
-### 4. Bayesian Model (brms)
+## Parameter Mapping
+
+The package ensures exact parameter correspondence between glmmTMB and brms:
+
+### Fixed Effects (Conditional Model)
+- glmmTMB: `fixef()$cond["(Intercept)"]` → brms: `b_Intercept`
+- glmmTMB: `fixef()$cond["x"]` → brms: `b_x`
+
+### Zero-Inflation Effects
+- glmmTMB: `fixef()$zi["(Intercept)"]` → brms: `zi_Intercept`  
+- glmmTMB: `fixef()$zi["x"]` → brms: `zi_x`
+
+### Random Effects
+- glmmTMB: `VarCorr()$cond$group["sd"]` → brms: `sd_group__Intercept`
+
+### Family-Specific Parameters
+- Beta/ZI Beta: `sigma()` → `phi` (precision)
+- Gamma: shape parameter
+- Negative Binomial: shape/dispersion parameter
+
+## Conformal Prediction
+
+### Split Conformal (Fast)
+```r
+cp_split <- conformal_prediction_split(
+  model = bayesian_model,
+  calibration_data = calib,
+  test_data = test,
+  alpha = 0.1  # 90% coverage
+)
+```
+
+### Jackknife+ (More Powerful, Slower)
+```r
+cp_jackknife <- conformal_prediction_jackknife(
+  formula = model_formula,
+  train_data = train,
+  test_data = test,
+  alpha = 0.1,
+  fit_function = fit_fn,
+  predict_function = predict_fn
+)
+```
+
+## Testing and CI/CD
+
+The package includes comprehensive testing:
 
 ```r
-model_brms <- brm(
-  bf(y ~ x + (1 + x | subject_id), zi ~ 1),
-  data = train_data,
-  family = zero_inflated_beta(),
-  prior = informative_priors
-)
+# Run tests locally
+devtools::test()
+
+# Check package
+devtools::check()
 ```
 
-### 5. Conformal Prediction
+### GitHub Actions
 
-Two methods available:
+Automated testing runs on:
+- **Platforms**: Ubuntu (latest, devel), macOS, Windows
+- **Triggers**: Push to main/master, pull requests, weekly schedule
+- **Checks**: R CMD check, test coverage, documentation
 
-#### Split Conformal
-- Fast and efficient
-- Uses separate calibration set
-- Provides valid prediction intervals
+## Documentation
 
-#### Jackknife+
-- More computationally intensive
-- Leave-one-out cross-validation
-- Can provide tighter intervals
+- **README.md**: This file (quick start and overview)
+- **QUICKSTART.md**: Detailed getting started guide
+- **TECHNICAL.md**: In-depth technical documentation
+- **Package help**: `?EmpiricalBayesianWorkflow` after installation
 
-## Output
+## Advanced Usage
 
-The workflow produces:
+### Custom Prior Specification
 
-1. **Fitted Models**: Both frequentist and Bayesian model objects
-2. **Prediction Intervals**: Lower and upper bounds for test observations
-3. **Coverage Statistics**: Empirical coverage vs. target coverage
-4. **Visualizations**: Plots showing predictions with uncertainty intervals
+```r
+# Extract default priors
+auto_priors <- extract_and_inflate_priors(freq_model, inflation_factor = 2)
 
-## Mathematical Details
+# Modify specific priors
+custom_priors <- create_brms_priors(auto_priors)
+# Then manually add or modify specific priors as needed
+```
 
-### Zero-Inflated Beta Distribution
+### Using Different Backends
 
-The response $y$ follows:
+```r
+# cmdstanr (default, recommended)
+model <- fit_bayesian_model(formula, data, backend = "cmdstanr")
 
-$$
-y \sim 
-\begin{cases}
-0 & \text{with probability } \pi \\
-\text{Beta}(\mu\phi, (1-\mu)\phi) & \text{with probability } 1-\pi
-\end{cases}
-$$
+# rstan (fallback)
+model <- fit_bayesian_model(formula, data, backend = "rstan")
+```
 
-### Mixed Model Structure
+## Contributing
 
-- **Conditional mean**: $\text{logit}(\mu_{ij}) = \beta_0 + \beta_1 x_{ij} + b_{0i} + b_{1i}x_{ij}$
-- **Zero-inflation**: $\text{logit}(\pi) = \gamma_0$
-- **Random effects**: $(b_{0i}, b_{1i})^T \sim N(0, \Sigma)$
+Contributions are welcome! Please:
+1. Fork the repository
+2. Create a feature branch
+3. Add tests for new functionality
+4. Ensure R CMD check passes
+5. Submit a pull request
 
-### Conformal Prediction
+## References
 
-For split conformal with miscoverage level $\alpha$:
-
-1. Compute nonconformity scores on calibration set: $s_i = |y_i - \hat{y}_i|$
-2. Find quantile: $q = \text{quantile}(s, (n+1)(1-\alpha)/n)$
-3. Prediction interval: $[\hat{y} - q, \hat{y} + q]$ (bounded to $[0,1]$)
+1. **glmmTMB**: Brooks et al. (2017). *The R Journal*, 9(2), 378-400.
+2. **brms**: Bürkner (2017). *Journal of Statistical Software*, 80(1), 1-28.
+3. **Conformal Prediction**: Vovk et al. (2005). *Algorithmic Learning in a Random World*. Springer.
+4. **Jackknife+**: Barber et al. (2021). *The Annals of Statistics*, 49(1), 486-507.
+5. **Empirical Bayes**: Efron (2012). *Large-Scale Inference*. Cambridge University Press.
 
 ## License
 
 See LICENSE file for details.
-
-## References
-
-- Shafer, G., & Vovk, V. (2008). A tutorial on conformal prediction. *Journal of Machine Learning Research*, 9, 371-421.
-- Brooks-Bartlett, J. (2018). *Probabilistic programming & Bayesian methods for hackers*. Addison-Wesley.
-- Bürkner, P. C. (2017). brms: An R package for Bayesian multilevel models using Stan. *Journal of Statistical Software*, 80(1), 1-28.
