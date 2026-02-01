@@ -19,8 +19,7 @@ RoxygenNote: 7.3.3
 Depends:
     R (>= 4.0.0)
 Imports:
-    stats,
-    methods
+    stats
 Suggests:
     glmmTMB (>= 1.1.0),
     brms (>= 2.18.0),
