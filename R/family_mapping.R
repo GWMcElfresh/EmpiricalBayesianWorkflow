@@ -139,16 +139,16 @@ create_brms_family <- function(family_config, link = NULL) {
 
   family_name <- family_config$name
 
-  # Create brms family object
+  # Create brms family object using brmsfamily() for correct API
   brms_family <- switch(family_name,
-    "beta" = brms::Beta(link = link %||% "logit"),
-    "zero_inflated_beta" = brms::zero_inflated_beta(link = link %||% "logit"),
-    "gamma" = brms::Gamma(link = link %||% "log"),
-    "binomial" = brms::binomial(link = link %||% "logit"),
-    "poisson" = brms::poisson(link = link %||% "log"),
-    "zero_inflated_poisson" = brms::zero_inflated_poisson(link = link %||% "log"),
-    "nbinom2" = brms::negbinomial(link = link %||% "log"),
-    "zero_inflated_nbinom2" = brms::zero_inflated_negbinomial(link = link %||% "log"),
+    "beta" = brms::brmsfamily("Beta", link = link %||% "logit"),
+    "zero_inflated_beta" = brms::brmsfamily("zero_inflated_beta", link = link %||% "logit"),
+    "gamma" = brms::brmsfamily("Gamma", link = link %||% "log"),
+    "binomial" = brms::brmsfamily("binomial", link = link %||% "logit"),
+    "poisson" = brms::brmsfamily("poisson", link = link %||% "log"),
+    "zero_inflated_poisson" = brms::brmsfamily("zero_inflated_poisson", link = link %||% "log"),
+    "nbinom2" = brms::brmsfamily("negbinomial", link = link %||% "log"),
+    "zero_inflated_nbinom2" = brms::brmsfamily("zero_inflated_negbinomial", link = link %||% "log"),
     stop(sprintf("Family '%s' not implemented", family_name))
   )
 
