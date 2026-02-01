@@ -1,14 +1,17 @@
 Package: EmpiricalBayesianWorkflow
-Title: Zero-Inflated Beta Mixed Model Workflow with Conformal Prediction
+Title: Mixed Model Workflow with Conformal Prediction
 Version: 1.0.0
 Authors@R: 
     person("Empirical Bayesian Workflow", "Contributor", 
            email = "example@example.com", 
            role = c("aut", "cre"))
-Description: Implements a complete workflow for fitting zero-inflated beta 
-    mixed models using both frequentist (glmmTMB) and Bayesian (brms) approaches.
-    Includes automatic prior construction from frequentist estimates and 
-    conformal prediction for uncertainty quantification.
+Description: Implements a complete workflow for fitting mixed models with
+    flexible families using both frequentist (glmmTMB) and Bayesian (brms/Stan) 
+    approaches. Includes automatic prior construction from frequentist estimates 
+    with exact parameter mapping between packages, and conformal prediction for 
+    uncertainty quantification. Supports multiple families including beta, 
+    zero-inflated beta, gamma, Poisson, negative binomial, and their zero-inflated 
+    variants. Uses cmdstanr as the default backend for Bayesian inference.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
@@ -16,13 +19,18 @@ RoxygenNote: 7.2.3
 Depends:
     R (>= 4.0.0)
 Imports:
+    stats,
+    methods
+Suggests:
     glmmTMB (>= 1.1.0),
     brms (>= 2.18.0),
-    dplyr (>= 1.0.0),
-    ggplot2 (>= 3.3.0),
-    tidyr (>= 1.1.0)
-Suggests:
-    rstan,
+    cmdstanr (>= 0.5.0),
+    dplyr,
+    ggplot2,
+    tidyr,
+    testthat (>= 3.0.0),
     knitr,
     rmarkdown
+Additional_repositories: https://mc-stan.org/r-packages/
 VignetteBuilder: knitr
+Config/testthat/edition: 3
