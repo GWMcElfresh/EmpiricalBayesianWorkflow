@@ -26,7 +26,6 @@ get_supported_families <- function() {
       param_classes = list(phi = "phi"),
       description = "Beta distribution for (0,1) responses"
     ),
-    
     zero_inflated_beta = list(
       name = "zero_inflated_beta",
       glmmTMB_family = "beta_family()",
@@ -38,7 +37,6 @@ get_supported_families <- function() {
       zi_link = "logit",
       description = "Zero-inflated beta for [0,1) with structural zeros"
     ),
-    
     gamma = list(
       name = "gamma",
       glmmTMB_family = "Gamma(link='log')",
@@ -49,7 +47,6 @@ get_supported_families <- function() {
       param_classes = list(shape = "shape"),
       description = "Gamma distribution for positive continuous responses"
     ),
-    
     binomial = list(
       name = "binomial",
       glmmTMB_family = "binomial()",
@@ -60,7 +57,6 @@ get_supported_families <- function() {
       param_classes = list(),
       description = "Binomial for binary or proportion responses"
     ),
-    
     poisson = list(
       name = "poisson",
       glmmTMB_family = "poisson()",
@@ -71,7 +67,6 @@ get_supported_families <- function() {
       param_classes = list(),
       description = "Poisson for count data"
     ),
-    
     zero_inflated_poisson = list(
       name = "zero_inflated_poisson",
       glmmTMB_family = "poisson()",
@@ -83,7 +78,6 @@ get_supported_families <- function() {
       zi_link = "logit",
       description = "Zero-inflated Poisson for count data with excess zeros"
     ),
-    
     nbinom2 = list(
       name = "nbinom2",
       glmmTMB_family = "nbinom2()",
@@ -94,7 +88,6 @@ get_supported_families <- function() {
       param_classes = list(shape = "shape"),
       description = "Negative binomial (NB2 parameterization) for overdispersed counts"
     ),
-    
     zero_inflated_nbinom2 = list(
       name = "zero_inflated_nbinom2",
       glmmTMB_family = "nbinom2()",
@@ -119,12 +112,14 @@ get_supported_families <- function() {
 #' @export
 get_family_config <- function(family_name) {
   families <- get_supported_families()
-  
+
   if (!family_name %in% names(families)) {
-    stop(sprintf("Family '%s' not supported. Supported families: %s",
-                family_name, paste(names(families), collapse = ", ")))
+    stop(sprintf(
+      "Family '%s' not supported. Supported families: %s",
+      family_name, paste(names(families), collapse = ", ")
+    ))
   }
-  
+
   families[[family_name]]
 }
 
@@ -141,12 +136,11 @@ create_brms_family <- function(family_config, link = NULL) {
   if (!requireNamespace("brms", quietly = TRUE)) {
     stop("brms package required")
   }
-  
+
   family_name <- family_config$name
-  
+
   # Create brms family object
-  brms_family <- switch(
-    family_name,
+  brms_family <- switch(family_name,
     "beta" = brms::Beta(link = link %||% "logit"),
     "zero_inflated_beta" = brms::zero_inflated_beta(link = link %||% "logit"),
     "gamma" = brms::Gamma(link = link %||% "log"),
@@ -157,7 +151,7 @@ create_brms_family <- function(family_config, link = NULL) {
     "zero_inflated_nbinom2" = brms::zero_inflated_negbinomial(link = link %||% "log"),
     stop(sprintf("Family '%s' not implemented", family_name))
   )
-  
+
   return(brms_family)
 }
 
@@ -173,23 +167,22 @@ create_glmmTMB_family <- function(family_config) {
   if (!requireNamespace("glmmTMB", quietly = TRUE)) {
     stop("glmmTMB package required")
   }
-  
+
   family_name <- family_config$name
-  
+
   # Create glmmTMB family
-  glmmTMB_family <- switch(
-    family_name,
+  glmmTMB_family <- switch(family_name,
     "beta" = glmmTMB::beta_family(),
-    "zero_inflated_beta" = glmmTMB::beta_family(),  # ZI handled via ziformula
+    "zero_inflated_beta" = glmmTMB::beta_family(), # ZI handled via ziformula
     "gamma" = stats::Gamma(link = "log"),
     "binomial" = stats::binomial(),
     "poisson" = stats::poisson(),
-    "zero_inflated_poisson" = stats::poisson(),  # ZI handled via ziformula
+    "zero_inflated_poisson" = stats::poisson(), # ZI handled via ziformula
     "nbinom2" = glmmTMB::nbinom2(),
-    "zero_inflated_nbinom2" = glmmTMB::nbinom2(),  # ZI handled via ziformula
+    "zero_inflated_nbinom2" = glmmTMB::nbinom2(), # ZI handled via ziformula
     stop(sprintf("Family '%s' not implemented", family_name))
   )
-  
+
   return(glmmTMB_family)
 }
 
@@ -214,7 +207,7 @@ map_parameter_name <- function(param_name, family_config, component = "cond") {
       return("Intercept")
     }
   }
-  
+
   # Handle regular coefficients
   if (component == "zi") {
     return(paste0("zi_", param_name))
@@ -236,14 +229,14 @@ map_parameter_name <- function(param_name, family_config, component = "cond") {
 #' @export
 extract_family_parameters <- function(model, family_config) {
   params <- list()
-  
+
   family_name <- family_config$name
-  
+
   # Beta and zero-inflated beta: phi (precision)
   if (family_name %in% c("beta", "zero_inflated_beta")) {
     params$phi <- stats::sigma(model)
   }
-  
+
   # Gamma: shape parameter
   else if (family_name == "gamma") {
     # Extract shape from glmmTMB
@@ -251,30 +244,27 @@ extract_family_parameters <- function(model, family_config) {
     if (!is.null(summary_obj$sigma)) {
       params$shape <- summary_obj$sigma
     } else {
-      params$shape <- 1  # Default
+      params$shape <- 1 # Default
     }
   }
-  
+
   # Negative binomial: shape/size parameter
   else if (family_name %in% c("nbinom2", "zero_inflated_nbinom2")) {
     summary_obj <- summary(model)
     if (!is.null(summary_obj$sigma)) {
       params$shape <- summary_obj$sigma
     } else {
-      params$shape <- 1  # Default
+      params$shape <- 1 # Default
     }
   }
-  
+
   # No additional parameters for binomial, poisson, etc.
-  
+
   return(params)
 }
 
-#' Null-coalescing operator
-#'
-#' @param x First value
-#' @param y Second value
-#' @keywords internal
+# Null-coalescing operator (internal use only)
+# Not exported to avoid conflicts with rlang::`%||%`
 `%||%` <- function(x, y) {
   if (is.null(x)) y else x
 }

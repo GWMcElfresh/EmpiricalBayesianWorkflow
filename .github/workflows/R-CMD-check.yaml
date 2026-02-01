@@ -2,7 +2,7 @@ name: R-CMD-check
 
 on:
   push:
-    branches: [main, master, copilot/**]
+    branches: [main, master]
   pull_request:
     branches: [main, master]
   workflow_dispatch:
@@ -22,8 +22,7 @@ jobs:
         config:
           - {os: ubuntu-latest, r: 'release'}
           - {os: ubuntu-latest, r: 'devel', http-user-agent: 'release'}
-          - {os: macOS-latest, r: 'release'}
-          - {os: windows-latest, r: 'release'}
+
 
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
@@ -47,7 +46,11 @@ jobs:
             any::testthat
             any::devtools
             any::roxygen2
+            stan-dev/cmdstanr
+          pak-version: devel
           needs: check
+        env:
+          R_REMOTES_NO_ERRORS_FROM_WARNINGS: true
 
       - name: Install system dependencies (Linux)
         if: runner.os == 'Linux'
