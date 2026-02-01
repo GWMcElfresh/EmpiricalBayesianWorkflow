@@ -20,6 +20,7 @@
 
 # RStudio files
 .Rproj.user/
+*.Rproj
 
 # produced vignettes
 vignettes/*.html
@@ -47,3 +48,17 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+
+# Model outputs and plots
+*.rds
+*.RDS
+*.png
+*.jpg
+*.jpeg
+*.pdf
+plots/
+models/
+
+# Stan temporary files
+*.rstan
+*.stan

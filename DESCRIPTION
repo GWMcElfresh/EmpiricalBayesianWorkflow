@@ -1,0 +1,28 @@
+Package: EmpiricalBayesianWorkflow
+Title: Zero-Inflated Beta Mixed Model Workflow with Conformal Prediction
+Version: 1.0.0
+Authors@R: 
+    person("Empirical Bayesian Workflow", "Contributor", 
+           email = "example@example.com", 
+           role = c("aut", "cre"))
+Description: Implements a complete workflow for fitting zero-inflated beta 
+    mixed models using both frequentist (glmmTMB) and Bayesian (brms) approaches.
+    Includes automatic prior construction from frequentist estimates and 
+    conformal prediction for uncertainty quantification.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.2.3
+Depends:
+    R (>= 4.0.0)
+Imports:
+    glmmTMB (>= 1.1.0),
+    brms (>= 2.18.0),
+    dplyr (>= 1.0.0),
+    ggplot2 (>= 3.3.0),
+    tidyr (>= 1.1.0)
+Suggests:
+    rstan,
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
