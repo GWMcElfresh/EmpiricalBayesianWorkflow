@@ -221,7 +221,8 @@ run_workflow <- function(data = NULL,
       test_data = test_data,
       alpha = alpha,
       fit_function = fit_fn,
-      predict_function = predict_fn
+      predict_function = predict_fn,
+      family = family
     )
   }
 

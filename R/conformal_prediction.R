@@ -49,6 +49,16 @@ conformal_prediction_split <- function(model,
                                        score_function = NULL) {
   method <- match.arg(method)
   
+  # Extract response variable name from model formula
+  if (inherits(model, "brmsfit")) {
+    resp_var <- all.vars(model$formula$formula)[1]
+  } else if (inherits(model, "glmmTMB")) {
+    resp_var <- all.vars(formula(model))[1]
+  } else {
+    # Fallback to 'y' if model class is unknown
+    resp_var <- "y"
+  }
+  
   # Default score function: absolute residual
   if (is.null(score_function)) {
     score_function <- function(y, y_pred) abs(y - y_pred)
@@ -69,11 +79,13 @@ conformal_prediction_split <- function(model,
   }
   
   # Calculate nonconformity scores
-  scores <- score_function(calibration_data$y, pred_calibration)
+  scores <- score_function(calibration_data[[resp_var]], pred_calibration)
   
   # Calculate conformal quantile
   n_calib <- length(scores)
   q_level <- ceiling((n_calib + 1) * (1 - alpha)) / n_calib
+  # Ensure q_level is within [0, 1] for quantile function
+  q_level <- pmin(pmax(q_level, 0), 1)
   q_conformal <- stats::quantile(scores, probs = q_level, na.rm = TRUE)
   
   # Generate predictions for test data
@@ -88,12 +100,30 @@ conformal_prediction_split <- function(model,
     }
   }
   
-  # Construct prediction intervals (bounded to [0, 1])
-  lower <- pmax(pred_test - q_conformal, 0)
-  upper <- pmin(pred_test + q_conformal, 1)
+  # Construct prediction intervals
+  # For beta/zero-inflated beta families, bound to [0, 1]
+  # For other families (gaussian, gamma, poisson, etc.), no bounds needed
+  model_family <- if (inherits(model, "brmsfit")) {
+    family(model)$family
+  } else {
+    "unknown"
+  }
+  
+  if (model_family %in% c("beta", "zero_inflated_beta")) {
+    lower <- pmax(pred_test - q_conformal, 0)
+    upper <- pmin(pred_test + q_conformal, 1)
+  } else if (model_family == "gamma") {
+    # Gamma must be positive
+    lower <- pmax(pred_test - q_conformal, 0)
+    upper <- pred_test + q_conformal
+  } else {
+    # No bounds for gaussian, poisson, etc.
+    lower <- pred_test - q_conformal
+    upper <- pred_test + q_conformal
+  }
   
   # Calculate empirical coverage on test set
-  coverage <- mean(test_data$y >= lower & test_data$y <= upper, na.rm = TRUE)
+  coverage <- mean(test_data[[resp_var]] >= lower & test_data[[resp_var]] <= upper, na.rm = TRUE)
   
   # Calculate interval widths
   widths <- upper - lower
@@ -125,6 +155,7 @@ conformal_prediction_split <- function(model,
 #' @param alpha Miscoverage level. Default is 0.1.
 #' @param fit_function Function to fit model. Should accept formula and data.
 #' @param predict_function Function to predict. Should accept model and newdata.
+#' @param family Optional family name for appropriate interval bounds (e.g., "beta", "gaussian").
 #' @param ... Additional arguments passed to fit_function.
 #'
 #' @return A list with the same structure as \code{conformal_prediction_split}.
@@ -136,9 +167,13 @@ conformal_prediction_jackknife <- function(formula,
                                            alpha = 0.1,
                                            fit_function,
                                            predict_function,
+                                           family = NULL,
                                            ...) {
   n_train <- nrow(train_data)
   n_test <- nrow(test_data)
+  
+  # Extract response variable name from formula
+  resp_var <- all.vars(formula)[1]
   
   # Store LOO predictions
   loo_predictions <- numeric(n_train)
@@ -166,7 +201,7 @@ conformal_prediction_jackknife <- function(formula,
   }
   
   # Calculate residuals (nonconformity scores)
-  residuals <- abs(train_data$y - loo_predictions)
+  residuals <- abs(train_data[[resp_var]] - loo_predictions)
   
   # For each test point, calculate prediction interval
   lower <- numeric(n_test)
@@ -179,16 +214,33 @@ conformal_prediction_jackknife <- function(formula,
     
     # Calculate quantile
     q_level <- ceiling((n_train + 1) * (1 - alpha)) / (n_train + 1)
+    # Ensure q_level is within [0, 1] for quantile function
+    q_level <- pmin(pmax(q_level, 0), 1)
     q_val <- stats::quantile(augmented_residuals, probs = q_level, na.rm = TRUE)
     
-    # Prediction interval
-    lower[j] <- max(pred_j_median - q_val, 0)
-    upper[j] <- min(pred_j_median + q_val, 1)
+    # Prediction interval with family-aware bounds
+    if (!is.null(family)) {
+      if (family %in% c("beta", "zero_inflated_beta")) {
+        lower[j] <- max(pred_j_median - q_val, 0)
+        upper[j] <- min(pred_j_median + q_val, 1)
+      } else if (family == "gamma") {
+        lower[j] <- max(pred_j_median - q_val, 0)
+        upper[j] <- pred_j_median + q_val
+      } else {
+        # No bounds for gaussian, poisson, etc.
+        lower[j] <- pred_j_median - q_val
+        upper[j] <- pred_j_median + q_val
+      }
+    } else {
+      # Default: bound to [0, 1] for backward compatibility
+      lower[j] <- max(pred_j_median - q_val, 0)
+      upper[j] <- min(pred_j_median + q_val, 1)
+    }
   }
   
   # Calculate coverage
   pred_test <- apply(test_predictions, 1, stats::median)
-  coverage <- mean(test_data$y >= lower & test_data$y <= upper, na.rm = TRUE)
+  coverage <- mean(test_data[[resp_var]] >= lower & test_data[[resp_var]] <= upper, na.rm = TRUE)
   widths <- upper - lower
   
   results <- list(
