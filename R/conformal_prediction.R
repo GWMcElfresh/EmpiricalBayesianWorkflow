@@ -57,7 +57,7 @@ conformal_prediction_split <- function(model,
   # Generate predictions for calibration data
   if (inherits(model, "bayes_brms") || inherits(model, "brmsfit") || 
       inherits(model, "zibeta_bayes_brms")) {
-    pp_calibration <- posterior_predict_model(model, newdata = calibration_data, ndraws = ndraws)
+    pp_calibration <- posterior_predict_model(model, newdata = calibration_data, ndraws = ndraws, allow_new_levels = TRUE)
     
     if (method == "posterior_median") {
       pred_calibration <- apply(pp_calibration, 2, stats::median)
@@ -79,7 +79,7 @@ conformal_prediction_split <- function(model,
   # Generate predictions for test data
   if (inherits(model, "bayes_brms") || inherits(model, "brmsfit") || 
       inherits(model, "zibeta_bayes_brms")) {
-    pp_test <- posterior_predict_model(model, newdata = test_data, ndraws = ndraws)
+    pp_test <- posterior_predict_model(model, newdata = test_data, ndraws = ndraws, allow_new_levels = TRUE)
     
     if (method == "posterior_median") {
       pred_test <- apply(pp_test, 2, stats::median)

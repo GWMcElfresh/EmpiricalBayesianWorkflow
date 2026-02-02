@@ -26,6 +26,16 @@ get_supported_families <- function() {
       param_classes = list(phi = "phi"),
       description = "Beta distribution for (0,1) responses"
     ),
+    gaussian = list(
+      name = "gaussian",
+      glmmTMB_family = "gaussian()",
+      brms_family = "gaussian()",
+      has_zi = FALSE,
+      has_hurdle = FALSE,
+      params = c("sigma"),
+      param_classes = list(sigma = "sigma"),
+      description = "Gaussian distribution for continuous responses"
+    ),
     zero_inflated_beta = list(
       name = "zero_inflated_beta",
       glmmTMB_family = "beta_family()",
@@ -142,6 +152,7 @@ create_brms_family <- function(family_config, link = NULL) {
   # Create brms family object using brmsfamily() for correct API
   brms_family <- switch(family_name,
     "beta" = brms::brmsfamily("Beta", link = link %||% "logit"),
+    "gaussian" = brms::brmsfamily("gaussian", link = link %||% "identity"),
     "zero_inflated_beta" = brms::brmsfamily("zero_inflated_beta", link = link %||% "logit"),
     "gamma" = brms::brmsfamily("Gamma", link = link %||% "log"),
     "binomial" = brms::brmsfamily("binomial", link = link %||% "logit"),
@@ -173,6 +184,7 @@ create_glmmTMB_family <- function(family_config) {
   # Create glmmTMB family
   glmmTMB_family <- switch(family_name,
     "beta" = glmmTMB::beta_family(),
+    "gaussian" = stats::gaussian(),
     "zero_inflated_beta" = glmmTMB::beta_family(), # ZI handled via ziformula
     "gamma" = stats::Gamma(link = "log"),
     "binomial" = stats::binomial(),
@@ -197,25 +209,36 @@ create_glmmTMB_family <- function(family_config) {
 #' @return Corresponding brms parameter name
 #' @export
 map_parameter_name <- function(param_name, family_config, component = "cond") {
-  # Handle intercept
-  if (param_name == "(Intercept)") {
-    if (component == "zi") {
-      return("zi_Intercept")
-    } else if (component == "disp") {
-      return("disp_Intercept")
-    } else {
-      return("Intercept")
-    }
+  # Determine family-specific dispersion parameter name (sigma, phi, shape)
+  # Default to "disp" if not found
+  disp_name <- "disp"
+  if (!is.null(family_config$param_classes)) {
+     # Usually the first parameter in params list is the main dispersion/shape param
+     # params = c("sigma") or c("phi") or c("shape")
+     if (length(family_config$params) > 0) {
+       disp_name <- family_config$params[1]
+     }
   }
 
-  # Handle regular coefficients
+  prefix <- ""
+  suffix <- param_name
+  
   if (component == "zi") {
-    return(paste0("zi_", param_name))
+      prefix <- "zi"
   } else if (component == "disp") {
-    return(paste0("disp_", param_name))
+      prefix <- disp_name
   } else {
-    return(param_name)
+      # Conditional model
+      if (param_name == "(Intercept)") return("Intercept")
+      return(param_name)
   }
+
+  # Clean up Intercept name
+  if (param_name == "(Intercept)") {
+      suffix <- "Intercept"
+  }
+  
+  return(paste0(prefix, "_", suffix))
 }
 
 #' Extract Family-Specific Parameters
@@ -237,12 +260,18 @@ extract_family_parameters <- function(model, family_config) {
     params$phi <- stats::sigma(model)
   }
 
+  # Gaussian: sigma parameter
+  else if (family_name == "gaussian") {
+    params$sigma <- stats::sigma(model)
+  }
+
   # Gamma: shape parameter
   else if (family_name == "gamma") {
-    # Extract shape from glmmTMB
-    summary_obj <- summary(model)
-    if (!is.null(summary_obj$sigma)) {
-      params$shape <- summary_obj$sigma
+    # glmmTMB returns dispersion (1/shape) as sigma
+    s <- tryCatch(stats::sigma(model), error = function(e) NULL)
+
+    if (!is.null(s)) {
+      params$shape <- 1 / s
     } else {
       params$shape <- 1 # Default
     }
@@ -250,9 +279,11 @@ extract_family_parameters <- function(model, family_config) {
 
   # Negative binomial: shape/size parameter
   else if (family_name %in% c("nbinom2", "zero_inflated_nbinom2")) {
-    summary_obj <- summary(model)
-    if (!is.null(summary_obj$sigma)) {
-      params$shape <- summary_obj$sigma
+    # glmmTMB returns theta (shape) as sigma
+    s <- tryCatch(stats::sigma(model), error = function(e) NULL)
+
+    if (!is.null(s)) {
+      params$shape <- s
     } else {
       params$shape <- 1 # Default
     }

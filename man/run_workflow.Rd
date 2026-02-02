@@ -18,6 +18,11 @@ run_workflow(
   conformal_method = c("split", "jackknife"),
   alpha = 0.1,
   backend = c("cmdstanr", "rstan"),
+  chains = 4,
+  iter = 2000,
+  warmup = 1000,
+  cores = 4,
+  seed = 123,
   verbose = TRUE,
   ...
 )
