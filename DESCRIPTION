@@ -1,0 +1,41 @@
+Package: EmpiricalBayesianWorkflow
+Title: Mixed Model Workflow with Conformal Prediction
+Version: 1.0.0
+Authors@R: 
+    person("Empirical Bayesian Workflow", "Contributor", 
+           email = "example@example.com", 
+           role = c("aut", "cre"))
+Description: Implements a complete workflow for fitting mixed models with
+    flexible families using both frequentist (glmmTMB) and Bayesian (brms/Stan) 
+    approaches. Includes automatic prior construction from frequentist estimates 
+    with exact parameter mapping between packages, and conformal prediction for 
+    uncertainty quantification. Supports multiple families including beta, 
+    zero-inflated beta, gamma, Poisson, negative binomial, and their zero-inflated 
+    variants. Uses cmdstanr as the default backend for Bayesian inference.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
+Depends:
+    R (>= 4.0.0)
+Imports:
+    stats
+Suggests:
+    glmmTMB (>= 1.1.0),
+    brms (>= 2.18.0),
+    cmdstanr (>= 0.5.0),
+    betareg,
+    dplyr,
+    ggplot2,
+    tidyr,
+    testthat (>= 3.0.0),
+    devtools,
+    knitr,
+    rmarkdown
+Additional_repositories: https://mc-stan.org/r-packages/
+VignetteBuilder: knitr
+Config/testthat/edition: 3
+URL: https://github.com/GWMcElfresh/EmpiricalBayesianWorkflow
+BugReports: https://github.com/GWMcElfresh/EmpiricalBayesianWorkflow/issues
+Remotes:
+    stan-dev/cmdstanr
