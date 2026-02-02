@@ -46,6 +46,150 @@ zero_inflated_beta = list(
 
 Always preserve this naming: brms expects `b_` prefix for fixed effects, `zi_` for zero-inflation, `sd_GROUP__TERM` for random effects.
 
+#### Prior Family Mappings (Critical for CI/CD)
+
+The following table documents the **exact prior structure** that brms expects for each supported family. These mappings are essential for the `extract_and_inflate_priors()` and `create_brms_priors()` functions.
+
+**General Structure:**
+- All families: Fixed effects get `class = "b"`, Intercepts get `class = "Intercept"`
+- Random effects: Always `class = "sd"` with `group` specified
+- Family-specific parameters: `class = "phi"`, `"shape"`, or `"sigma"`
+- Zero-inflation: `class = "Intercept"`, `dpar = "zi"`
+
+##### Gaussian Family
+```r
+# brms prior classes:
+class = "b"          # Fixed effect slopes (flat prior)
+class = "Intercept"  # Fixed effect intercept (student_t(3, μ_y, 2.5))
+class = "sd"         # Random effect SDs (student_t(3, 0, 2.5))
+class = "sigma"      # Residual SD (student_t(3, 0, 2.5))
+
+# glmmTMB extracts:
+- Fixed Effects (cond): "(Intercept)", "x", ...
+- Dispersion (disp): "(Intercept)" → maps to sigma
+```
+
+##### Beta Family
+```r
+# brms prior classes:
+class = "b"          # Fixed effect slopes (flat prior)
+class = "Intercept"  # Fixed effect intercept (student_t(3, 0, 2.5))
+class = "sd"         # Random effect SDs (student_t(3, 0, 2.5))
+class = "phi"        # Precision parameter (gamma(0.01, 0.01))
+
+# glmmTMB extracts:
+- Fixed Effects (cond): "(Intercept)", "x", ...
+- Dispersion (disp): "(Intercept)" → maps to phi
+```
+
+##### Gamma Family
+```r
+# brms prior classes:
+class = "b"          # Fixed effect slopes (flat prior)
+class = "Intercept"  # Fixed effect intercept (student_t(3, μ_y, 2.5))
+class = "sd"         # Random effect SDs (student_t(3, 0, 2.5))
+class = "shape"      # Shape parameter (gamma(0.01, 0.01))
+
+# glmmTMB extracts:
+- Fixed Effects (cond): "(Intercept)", "x", ...
+- Dispersion (disp): "(Intercept)" → maps to shape
+```
+
+##### Binomial Family
+```r
+# brms prior classes:
+class = "b"          # Fixed effect slopes (flat prior)
+class = "Intercept"  # Fixed effect intercept (student_t(3, 0, 2.5))
+class = "sd"         # Random effect SDs (student_t(3, 0, 2.5))
+
+# glmmTMB extracts:
+- Fixed Effects (cond): "(Intercept)", "x", ...
+- NO dispersion parameter for binomial
+```
+
+##### Poisson Family
+```r
+# brms prior classes:
+class = "b"          # Fixed effect slopes (flat prior)
+class = "Intercept"  # Fixed effect intercept (student_t(3, log(μ_y), 2.5))
+class = "sd"         # Random effect SDs (student_t(3, 0, 2.5))
+
+# glmmTMB extracts:
+- Fixed Effects (cond): "(Intercept)", "x", ...
+- NO dispersion parameter for Poisson
+```
+
+##### Negative Binomial (nbinom2) Family
+```r
+# brms prior classes:
+class = "b"          # Fixed effect slopes (flat prior)
+class = "Intercept"  # Fixed effect intercept (student_t(3, log(μ_y), 2.5))
+class = "sd"         # Random effect SDs (student_t(3, 0, 2.5))
+class = "shape"      # Dispersion parameter (inv_gamma(0.4, 0.3))
+
+# glmmTMB extracts:
+- Fixed Effects (cond): "(Intercept)", "x", ...
+- Dispersion (disp): "(Intercept)" → maps to shape
+```
+
+##### Zero-Inflated Beta Family
+```r
+# brms prior classes:
+class = "b"          # Conditional fixed effect slopes (flat prior)
+class = "Intercept"  # Conditional intercept (student_t(3, 0, 2.5))
+class = "sd"         # Random effect SDs (student_t(3, 0, 2.5))
+class = "phi"        # Precision parameter (gamma(0.01, 0.01))
+class = "Intercept", dpar = "zi"  # ZI intercept (logistic(0, 1))
+
+# glmmTMB extracts:
+- Fixed Effects (cond): "(Intercept)", "x", ...
+- Zero-Inflation (zi): "(Intercept)" → maps to zi_Intercept
+- Dispersion (disp): "(Intercept)" → maps to phi
+```
+
+##### Zero-Inflated Negative Binomial (nbinom2) Family
+```r
+# brms prior classes:
+class = "b"          # Conditional fixed effect slopes (flat prior)
+class = "Intercept"  # Conditional intercept (student_t(3, log(μ_y), 2.5))
+class = "sd"         # Random effect SDs (student_t(3, 0, 2.5))
+class = "shape"      # Dispersion parameter (inv_gamma(0.4, 0.3))
+class = "Intercept", dpar = "zi"  # ZI intercept (logistic(0, 1))
+
+# glmmTMB extracts:
+- Fixed Effects (cond): "(Intercept)", "x", ...
+- Zero-Inflation (zi): "(Intercept)" → maps to zi_Intercept
+- Dispersion (disp): "(Intercept)" → maps to shape
+```
+
+**Critical Naming Conventions:**
+
+| Component | glmmTMB Name | brms Prior Name | Notes |
+|-----------|--------------|-----------------|-------|
+| Fixed effect intercept | `(Intercept)` | `b_Intercept` | Use `class = "Intercept"` in prior |
+| Fixed effect slope | `x` | `b_x` | Use `class = "b", coef = "x"` in prior |
+| Random intercept SD | `Std.Dev.subject_id.(Intercept)` | `sd_subject_id__Intercept` | Note double underscore |
+| Random slope SD | `Std.Dev.subject_id.x` | `sd_subject_id__x` | Note double underscore |
+| ZI intercept | `(Intercept)` in zi component | `zi_Intercept` | Use `dpar = "zi"` in prior |
+| Dispersion (beta) | `(Intercept)` in disp | `phi` | Use `class = "phi"` |
+| Dispersion (gamma/nbinom) | `(Intercept)` in disp | `shape` | Use `class = "shape"` |
+| Residual SD (gaussian) | `(Intercept)` in disp | `sigma` | Use `class = "sigma"` |
+
+**Prior Construction Workflow:**
+
+1. **Extract from glmmTMB:** Use `summary(model)$coefficients$cond` for fixed effects, `$zi` for zero-inflation, VarCorr for random effects
+2. **Map parameter names:** Apply `map_parameter_name()` with correct component type
+3. **Set prior values:** Use extracted estimates as location, inflate variance
+4. **Create brms prior:** Use `set_prior()` with correct class, coef, group, dpar
+5. **Validate structure:** Check against `brms::get_prior()` output for the family
+
+**Common CI/CD Failures:**
+
+- **Missing phi/shape priors:** Beta/gamma/nbinom families REQUIRE dispersion priors
+- **Wrong ZI prior format:** Must specify `dpar = "zi"` for zero-inflation component
+- **Incorrect random effect naming:** Must use double underscore `sd_GROUP__TERM`
+- **Missing coef specification:** Slope priors need `coef = "x"` to target specific coefficients
+
 ### 3. Dual Backend Support
 
 The package defaults to **cmdstanr** (faster) but falls back to rstan:

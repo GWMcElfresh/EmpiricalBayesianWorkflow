@@ -29,6 +29,7 @@ Suggests:
     ggplot2,
     tidyr,
     testthat (>= 3.0.0),
+    devtools,
     knitr,
     rmarkdown
 Additional_repositories: https://mc-stan.org/r-packages/

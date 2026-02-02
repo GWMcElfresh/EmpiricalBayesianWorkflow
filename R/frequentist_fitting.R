@@ -180,8 +180,20 @@ extract_parameters.freq_glmmTMB <- function(model, ...) {
   }
   
   # Add dispersion effects if present
+  # BUT: For simple intercept-only dispersion (no covariates), treat as scalar
+  # This is because glmmTMB always models dispersion, but brms only uses
+  # distributional regression if explicitly specified
   if (!is.null(fixed_effects$disp)) {
-    result$disp_fixef <- fixed_effects$disp
+    disp_names <- names(fixed_effects$disp)
+    # Check if dispersion is ONLY intercept (no other terms)
+    if (length(disp_names) == 1 && disp_names[1] == "(Intercept)") {
+      # This is a scalar dispersion - it's already handled by extract_family_parameters
+      # So we DON'T add it to disp_fixef (which would make it distributional)
+      # The scalar parameter (sigma, phi, shape) is already in family_params
+    } else {
+      # Dispersion has covariates - this is distributional regression
+      result$disp_fixef <- fixed_effects$disp
+    }
   }
   
   # Add family-specific parameters

@@ -7,6 +7,10 @@ library(glmmTMB)
 library(dplyr)
 
 output_file <- "tests/prior_reference.txt"
+
+# Ensure tests directory exists
+if (!dir.exists("tests")) dir.create("tests")
+
 sink(output_file)
 
 cat("Prior Inspection and Mapping Reference\n")
