@@ -22,7 +22,7 @@ generate_zibeta_data(
 }
 \value{
 A data frame with columns:
-\item{y}{Response variable, bounded in \link{0, 1} with possible zeros}
+\item{y}{Response variable, bounded in (0, 1) with possible zeros}
 \item{x}{Predictor variable (continuous)}
 \item{subject_id}{Grouping factor for random effects}
 }

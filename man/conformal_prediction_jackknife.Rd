@@ -11,6 +11,7 @@ conformal_prediction_jackknife(
   alpha = 0.1,
   fit_function,
   predict_function,
+  family = NULL,
   ...
 )
 }
@@ -26,6 +27,8 @@ conformal_prediction_jackknife(
 \item{fit_function}{Function to fit model. Should accept formula and data.}
 
 \item{predict_function}{Function to predict. Should accept model and newdata.}
+
+\item{family}{Optional family name for appropriate interval bounds (e.g., "beta", "gaussian").}
 
 \item{...}{Additional arguments passed to fit_function.}
 }
