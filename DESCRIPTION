@@ -24,6 +24,7 @@ Suggests:
     glmmTMB (>= 1.1.0),
     brms (>= 2.18.0),
     cmdstanr (>= 0.5.0),
+    betareg,
     dplyr,
     ggplot2,
     tidyr,
